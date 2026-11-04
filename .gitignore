@@ -1,0 +1,51 @@
+# dipendenze
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# build e test
+/.next/
+/out/
+/build
+/coverage
+/src/generated
+*.tsbuildinfo
+next-env.d.ts
+
+# variabili d'ambiente e segreti
+.env*
+!.env.example
+*.pem
+
+# Vercel
+.vercel
+
+# strumenti AI locali
+.claude/
+CLAUDE.local.md
+
+# log
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# note e piani personali
+NOTE*.md
+NOTES*.md
+note/
+notes/
+PIANO*.md
+piani/
+docs/private/
+docs/personale/
+
+# sistema
+.DS_Store

@@ -1,0 +1,420 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EmployeeStatus {
+  ONBOARDING
+  ACTIVE
+  OFFBOARDING
+  LEFT
+}
+
+enum Os {
+  MACOS
+  WINDOWS
+  IOS
+  ANDROID
+}
+
+enum DeviceType {
+  LAPTOP
+  PHONE
+}
+
+enum WorkMode {
+  OFFICE
+  REMOTE
+}
+
+enum ReturnMethod {
+  SHIPPING
+  OFFICE
+}
+
+enum ShipmentStatus {
+  LABEL_CREATED
+  SHIPPED
+  DELIVERED
+}
+
+enum ContractType {
+  INDETERMINATO
+  DETERMINATO
+  APPRENDISTATO
+}
+
+enum LeaveType {
+  FERIE
+  ROL
+  EX_FESTIVITA
+  MALATTIA
+  PERMESSO_NON_RETRIBUITO
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SafetyRole {
+  FIRST_AID
+  FIRE_WARDEN
+  PREPOSTO
+  RLS
+}
+
+enum CourseAudience {
+  ALL
+  FIRST_AID
+  FIRE_WARDEN
+  PREPOSTO
+  RLS
+}
+
+enum DocumentCategory {
+  CONTRATTO
+  ATTESTATO
+  IDONEITA_MEDICA
+  PRIVACY
+  REGOLAMENTO
+  ALTRO
+}
+
+enum StepStatus {
+  PENDING
+  DONE
+  WAITING_IT
+  FAILED
+}
+
+enum DeviceStatus {
+  AVAILABLE
+  RESERVED
+  ASSIGNED
+  TO_RECOVER
+  IN_REPAIR
+  RETIRED
+}
+
+enum PlanKind {
+  ONBOARDING
+  OFFBOARDING
+}
+
+enum PlanStatus {
+  PROPOSED
+  EXECUTING
+  APPROVED
+  REJECTED
+}
+
+enum ItRequestType {
+  DEVICE_PROCUREMENT
+  LICENSE_SEATS
+  DEVICE_RETURN
+  DEVICE_SETUP
+}
+
+enum ItRequestStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+model Department {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String        @unique
+  roles     RoleProfile[]
+  employees Employee[]
+}
+
+model WorkSchedule {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  weeklyHours Int
+  description String
+  employees   Employee[]
+}
+
+model RoleProfile {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  departmentId String?
+  department   Department?   @relation(fields: [departmentId], references: [id])
+  defaultOs    Os
+  minRamGb     Int
+  needsPhone   Boolean       @default(false)
+  licenses     RoleLicense[]
+  employees    Employee[]
+}
+
+model RoleLicense {
+  roleId    String
+  licenseId String
+  role      RoleProfile @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  license   License     @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, licenseId])
+}
+
+model Employee {
+  id                String              @id @default(cuid())
+  firstName         String
+  lastName          String
+  email             String              @unique
+  team              String
+  roleId            String
+  role              RoleProfile         @relation(fields: [roleId], references: [id])
+  departmentId      String?
+  department        Department?         @relation(fields: [departmentId], references: [id])
+  scheduleId        String?
+  schedule          WorkSchedule?       @relation(fields: [scheduleId], references: [id])
+  contractType      ContractType        @default(INDETERMINATO)
+  contractLevel     String?
+  contractEnd       DateTime?
+  phone             String?
+  safetyRoles       SafetyRole[]
+  status            EmployeeStatus
+  workMode          WorkMode            @default(OFFICE)
+  address           String?
+  startDate         DateTime
+  endDate           DateTime?
+  devices           Device[]
+  licenses          LicenseAssignment[]
+  plans             Plan[]
+  requests          ItRequest[]
+  shipments         Shipment[]
+  leaveBalances     LeaveBalance[]
+  leaveRequests     LeaveRequest[]
+  courseCompletions CourseCompletion[]
+  enrollments       CourseEnrollment[]
+  documents         Document[]
+  createdAt         DateTime            @default(now())
+}
+
+model LeaveBalance {
+  id            String    @id @default(cuid())
+  employeeId    String
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year          Int
+  type          LeaveType
+  entitledHours Decimal   @db.Decimal(6, 2)
+  carriedHours  Decimal   @default(0) @db.Decimal(6, 2)
+
+  @@unique([employeeId, year, type])
+}
+
+model LeaveRequest {
+  id         String      @id @default(cuid())
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       LeaveType
+  startDate  DateTime
+  endDate    DateTime
+  hours      Decimal     @db.Decimal(6, 2)
+  status     LeaveStatus @default(PENDING)
+  note       String?
+  decidedAt  DateTime?
+  createdAt  DateTime    @default(now())
+
+  @@index([status, startDate])
+  @@index([employeeId, startDate])
+}
+
+model Course {
+  id             String             @id @default(cuid())
+  code           String             @unique
+  title          String
+  description    String
+  audience       CourseAudience
+  hours          Int
+  validityMonths Int?
+  renewsCourseId String?
+  renewsCourse   Course?            @relation("CourseRenewal", fields: [renewsCourseId], references: [id])
+  renewals       Course[]           @relation("CourseRenewal")
+  completions    CourseCompletion[]
+  sessions       CourseSession[]
+}
+
+model CourseSession {
+  id          String             @id @default(cuid())
+  courseId    String
+  course      Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  date        DateTime
+  location    String
+  provider    String
+  seats       Int
+  completedAt DateTime?
+  enrollments CourseEnrollment[]
+
+  @@index([date])
+}
+
+model CourseEnrollment {
+  id         String        @id @default(cuid())
+  sessionId  String
+  session    CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([sessionId, employeeId])
+}
+
+model CourseCompletion {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course    @relation(fields: [courseId], references: [id])
+  completedAt DateTime
+  expiresAt   DateTime?
+  provider    String
+  document    Document?
+
+  @@index([employeeId, courseId])
+}
+
+model Document {
+  id           String            @id @default(cuid())
+  employeeId   String
+  employee     Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category     DocumentCategory
+  title        String
+  fileName     String
+  issuedAt     DateTime
+  expiresAt    DateTime?
+  completionId String?           @unique
+  completion   CourseCompletion? @relation(fields: [completionId], references: [id], onDelete: SetNull)
+  createdAt    DateTime          @default(now())
+
+  @@index([employeeId, category])
+  @@index([expiresAt])
+}
+
+model Device {
+  id           String       @id @default(cuid())
+  model        String
+  type         DeviceType   @default(LAPTOP)
+  os           Os
+  ramGb        Int
+  serial       String       @unique
+  status       DeviceStatus
+  assignedToId String?
+  assignedTo   Employee?    @relation(fields: [assignedToId], references: [id])
+  requests     ItRequest[]
+  createdAt    DateTime     @default(now())
+
+  @@index([status, type, os])
+}
+
+model License {
+  id                 String              @id @default(cuid())
+  product            String              @unique
+  totalSeats         Int
+  monthlyCostPerSeat Decimal             @db.Decimal(10, 2)
+  renewalDate        DateTime
+  assignments        LicenseAssignment[]
+  roles              RoleLicense[]
+  requests           ItRequest[]
+}
+
+model LicenseAssignment {
+  id         String    @id @default(cuid())
+  licenseId  String
+  employeeId String
+  assignedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  license    License   @relation(fields: [licenseId], references: [id])
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+
+  @@index([licenseId, revokedAt])
+}
+
+model Plan {
+  id         String     @id @default(cuid())
+  kind       PlanKind
+  status     PlanStatus @default(PROPOSED)
+  employeeId String?
+  employee   Employee?  @relation(fields: [employeeId], references: [id])
+  actions    Json
+  emailText  String?
+  steps      PlanStep[]
+  shipment   Shipment?
+  createdAt  DateTime   @default(now())
+  decidedAt  DateTime?
+  // Lock di esecuzione: impedisce due esecuzioni parallele dello stesso piano, scade da solo se l'esecuzione si interrompe
+  lockedUntil DateTime?
+}
+
+model PlanStep {
+  id          String     @id @default(cuid())
+  planId      String
+  plan        Plan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  position    Int
+  kind        String
+  label       String
+  data        Json
+  status      StepStatus @default(PENDING)
+  detail      String?
+  itRequestId String?    @unique
+  itRequest   ItRequest? @relation(fields: [itRequestId], references: [id])
+  completedAt DateTime?
+
+  @@index([planId, position])
+}
+
+model Shipment {
+  id           String         @id @default(cuid())
+  trackingCode String         @unique
+  confirmToken String         @unique
+  status       ShipmentStatus @default(LABEL_CREATED)
+  shippedAt    DateTime?
+  shipperNote  String?
+  deliveredAt  DateTime?
+  carrier      String
+  fromAddress  String
+  toAddress    String
+  employeeId   String
+  employee     Employee       @relation(fields: [employeeId], references: [id])
+  planId       String?        @unique
+  plan         Plan?          @relation(fields: [planId], references: [id])
+  requests     ItRequest[]
+  createdAt    DateTime       @default(now())
+}
+
+model ItRequest {
+  id           String          @id @default(cuid())
+  type         ItRequestType
+  status       ItRequestStatus @default(OPEN)
+  dueDate      DateTime
+  note         String
+  employeeId   String?
+  deviceId     String?
+  licenseId    String?
+  returnMethod ReturnMethod?
+  shipmentId   String?
+  shipment     Shipment?       @relation(fields: [shipmentId], references: [id])
+  planStep     PlanStep?
+  employee     Employee?       @relation(fields: [employeeId], references: [id])
+  device       Device?         @relation(fields: [deviceId], references: [id])
+  license      License?        @relation(fields: [licenseId], references: [id])
+  createdAt    DateTime        @default(now())
+
+  @@index([status, dueDate])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String
+  action    String
+  payload   Json
+  createdAt DateTime @default(now())
+}
